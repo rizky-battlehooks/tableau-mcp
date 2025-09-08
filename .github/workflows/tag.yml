@@ -1,3 +1,5 @@
+disabled: true
+
 name: 'Tag for Release'
 on:
   pull_request:
