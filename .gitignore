@@ -6,6 +6,7 @@ junit/
 coverage/
 config.json
 env.list
+env.tableau
 manifest.json
 tableau-mcp.dxt
 *.pem

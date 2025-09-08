@@ -1,6 +1,6 @@
 import { RequestId } from '@modelcontextprotocol/sdk/types.js';
 
-import { isAxiosError } from '../node_modules/axios/index.js';
+import { isAxiosError } from 'axios';
 import { Config, getConfig } from './config.js';
 import { log, shouldLogWhenLevelIsAtLeast } from './logging/log.js';
 import { maskRequest, maskResponse } from './logging/secretMask.js';
