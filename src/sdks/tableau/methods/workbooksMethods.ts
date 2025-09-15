@@ -43,6 +43,35 @@ export default class WorkbooksMethods extends AuthenticatedMethods<typeof workbo
   };
 
   /**
+   * Downloads the specified workbook content as a TWB or TWBX file depending on whether it has extracts.
+   *
+   * Required scopes: `tableau:workbooks:download`
+   *
+   * @param {string} workbookId The ID of the workbook to download.
+   * @param {string} siteId - The Tableau site ID
+   * @returns {Promise<string>} raw binary string representing the workbook file
+   * @link https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_workbooks_and_views.htm#download_workbook
+   */
+  downloadWorkbookContent = async ({
+    workbookId,
+    siteId,
+    includeExtract = false,
+  }: {
+    workbookId: string;
+    siteId: string;
+    includeExtract?: boolean;
+  }): Promise<string> => {
+    // Set responseType to arraybuffer to handle both XML and binary data
+    // Default to includeExtract=false to get XML format
+    return await this._apiClient.downloadWorkbookContent({
+      params: { siteId, workbookId },
+      queries: { includeExtract },
+      ...this.authHeader,
+      responseType: 'arraybuffer',
+    });
+  };
+
+  /**
    * Returns the workbooks on a site.
    *
    * Required scopes: `tableau:content:read`

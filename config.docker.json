@@ -2,7 +2,7 @@
   "mcpServers": {
     "tableau": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--env-file", "env.tableau", "tableau-mcp"]
+      "args": ["run", "-d", "--name", "tb-mcp", "-p", "3000:3000", "--env-file", "env.tableau", "tableau-mcp"]
     }
   }
 }

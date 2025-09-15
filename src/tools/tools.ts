@@ -13,6 +13,9 @@ import { getGetViewImageTool } from './views/getViewImage.js';
 import { getListViewsTool } from './views/listViews.js';
 import { getGetWorkbookTool } from './workbooks/getWorkbook.js';
 import { getListWorkbooksTool } from './workbooks/listWorkbooks.js';
+import { getDownloadWorkbookTool } from './workbooks/downloadWorkbook.js';
+import { getListWorkbookCalculatedFieldsTool } from './workbooks/listWorkbookCalculatedFields.js';
+import { getWorkbookContentTool } from './workbooks/getWorkbookContent.js';
 
 export const toolFactories = [
   getListDatasourcesTool,
@@ -30,4 +33,7 @@ export const toolFactories = [
   getGetViewImageTool,
   getListWorkbooksTool,
   getListViewsTool,
+  getDownloadWorkbookTool,
+  getListWorkbookCalculatedFieldsTool,
+  getWorkbookContentTool,
 ];

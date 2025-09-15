@@ -14,6 +14,9 @@ export const toolNames = [
   'list-pulse-metrics-from-metric-ids',
   'list-pulse-metric-subscriptions',
   'generate-pulse-metric-value-insight-bundle',
+  'download-workbook',
+  'list-workbook-calculated-fields',
+  'get-workbook-content',
 ] as const;
 export type ToolName = (typeof toolNames)[number];
 
@@ -22,7 +25,7 @@ export type ToolGroupName = (typeof toolGroupNames)[number];
 
 export const toolGroups = {
   datasource: ['list-datasources', 'list-fields', 'query-datasource', 'read-metadata'],
-  workbook: ['list-workbooks', 'get-workbook'],
+  workbook: ['list-workbooks', 'get-workbook', 'download-workbook', 'list-workbook-calculated-fields', 'get-workbook-content'],
   view: ['list-views', 'get-view-data', 'get-view-image'],
   pulse: [
     'list-all-pulse-metric-definitions',

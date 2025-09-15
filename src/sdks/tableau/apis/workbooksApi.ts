@@ -14,6 +14,35 @@ const getWorkbookEndpoint = makeEndpoint({
   response: z.object({ workbook: workbookSchema }),
 });
 
+const downloadWorkbookContentEndpoint = makeEndpoint({
+  method: 'get',
+  path: `/sites/:siteId/workbooks/:workbookId/content`,
+  alias: 'downloadWorkbookContent',
+  description:
+    'Downloads the specified workbook content as a TWB or TWBX file depending on whether it has extracts.',
+  parameters: [
+    {
+      name: 'siteId',
+      type: 'Path',
+      schema: z.string(),
+    },
+    {
+      name: 'workbookId',
+      type: 'Path',
+      schema: z.string(),
+    },
+    {
+      name: 'includeExtract',
+      type: 'Query',
+      schema: z.boolean().optional(),
+      description:
+        'If false, the workbook is returned without extracts (TWB). If true (default), includes extracts (TWBX when applicable).',
+    },
+  ],
+  // Accept binary payload; the actual Axios responseType is set at call time
+  response: z.any(),
+});
+
 const queryWorkbooksForSiteEndpoint = makeEndpoint({
   method: 'get',
   path: `/sites/:siteId/workbooks`,
@@ -42,6 +71,10 @@ const queryWorkbooksForSiteEndpoint = makeEndpoint({
   }),
 });
 
-const workbooksApi = makeApi([queryWorkbooksForSiteEndpoint, getWorkbookEndpoint]);
+const workbooksApi = makeApi([
+  queryWorkbooksForSiteEndpoint,
+  getWorkbookEndpoint,
+  downloadWorkbookContentEndpoint,
+]);
 
 export const workbooksApis = [...workbooksApi] as const satisfies ZodiosEndpointDefinitions;
