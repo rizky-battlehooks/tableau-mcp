@@ -27,6 +27,31 @@ const paramsSchema = {
    */
   sampleLimit: z.number().int().positive().max(200).optional(),
   /**
+   * If true, only return the summary (no fields array). Forces includeSummary=true implicitly.
+   */
+  summaryOnly: z.boolean().optional(),
+  /**
+   * Limit the number of returned field records to help control payload size (default 200, max 2000).
+   */
+  fieldsLimit: z.number().int().positive().max(2000).optional(),
+  /**
+   * If true, omit formula text from each field in the fields array (reduces payload size).
+   */
+  omitFormulas: z.boolean().optional(),
+  /**
+   * Truncate formula text to this length in the fields array (applied only if omitFormulas is false).
+   */
+  truncateFormulaLength: z.number().int().nonnegative().max(10000).optional(),
+  /**
+   * If true, return only essential field properties (name, datatype, role) to minimize payload size.
+   */
+  minimalFields: z.boolean().optional(),
+  /**
+   * If true, deduplicate fields by display name (caption), falling back to name. Useful to reduce payload size
+   * when the same calculated field label appears multiple times.
+   */
+  uniqueByDisplayName: z.boolean().optional(),
+  /**
    * Deprecated: prefer `source: "twb-xml"` instead
    */
   useDirectParsing: z.boolean().optional(),
@@ -39,7 +64,7 @@ export const getListWorkbookCalculatedFieldsTool = (
     server,
     name: 'list-workbook-calculated-fields',
     description:
-      'Lists calculated fields that belong to the specified workbook. You can query the Metadata API, directly parse the TWB XML, or combine both. Use params: source (auto|twb-xml|metadata|combined), includeSummary, sampleLimit.',
+      'Lists calculated fields that belong to the specified workbook. You can query the Metadata API, directly parse the TWB XML, or combine both. Use params: source (auto|twb-xml|metadata|combined), includeSummary, sampleLimit, minimalFields (for large workbooks), uniqueByDisplayName (dedupe by caption/name).',
     paramsSchema,
     annotations: {
       title: 'List Workbook Calculated Fields',
@@ -51,7 +76,13 @@ export const getListWorkbookCalculatedFieldsTool = (
         workbookId,
         source,
         includeSummary = false,
-        sampleLimit = 20,
+        sampleLimit = 20000,
+        summaryOnly = false,
+        fieldsLimit = 20000,
+        omitFormulas = false,
+        truncateFormulaLength = 20000,
+        minimalFields = false,
+        uniqueByDisplayName = false,
         useDirectParsing = false,
       },
       { requestId },
@@ -267,6 +298,53 @@ export const getListWorkbookCalculatedFieldsTool = (
                   };
                 };
 
+                // Dedupe helper: by caption (display name) lowercased, fallback to name
+                const dedupeByDisplayName = (
+                  fields: SummaryField[],
+                ): SummaryField[] => {
+                  const map = new Map<string, SummaryField>();
+                  for (const f of fields) {
+                    const keyRaw = (typeof f.caption === 'string' && f.caption.trim().length > 0)
+                      ? f.caption
+                      : (typeof f.name === 'string' ? f.name : '');
+                    const key = keyRaw.trim().toLowerCase();
+                    if (!map.has(key)) {
+                      map.set(key, f);
+                    }
+                  }
+                  return Array.from(map.values());
+                };
+
+                const transformFields = (
+                  fields: SummaryField[],
+                ): SummaryField[] => {
+                  if (summaryOnly) return [];
+                  const max = Math.max(1, Math.min(2000, fieldsLimit ?? 200));
+                  const limit = fields.slice(0, max);
+                  
+                  if (minimalFields) {
+                    // Return only essential properties to minimize payload size
+                    return limit.map((f) => ({
+                      name: f.name,
+                      datatype: f.datatype ?? null,
+                      role: f.role ?? null,
+                    }));
+                  }
+                  
+                  if (omitFormulas) {
+                    return limit.map((f) => ({ ...f, formula: undefined }));
+                  }
+                  if (typeof truncateFormulaLength === 'number') {
+                    const n = Math.max(0, Math.min(10000, truncateFormulaLength));
+                    return limit.map((f) =>
+                      typeof f.formula === 'string' && f.formula.length > n
+                        ? { ...f, formula: f.formula.slice(0, n) }
+                        : f,
+                    );
+                  }
+                  return limit;
+                };
+
                 type SummaryField = {
                   name: string;
                   caption?: string | null;
@@ -298,42 +376,56 @@ export const getListWorkbookCalculatedFieldsTool = (
                 try {
                   if (effectiveSource === 'twb-xml') {
                     const xml = await fetchFromXml();
-                    return includeSummary
-                      ? { ...xml, summary: computeSummary(xml.fields) }
-                      : xml;
+                    const base = uniqueByDisplayName ? dedupeByDisplayName(xml.fields as SummaryField[]) : (xml.fields as SummaryField[]);
+                    const fields = transformFields(base);
+                    const out = { count: fields.length, fields, source: xml.source };
+                    const needSummary = includeSummary || summaryOnly;
+                    return needSummary ? { ...out, summary: computeSummary(base) } : out;
                   }
 
                   if (effectiveSource === 'metadata') {
                     const meta = await fetchFromMetadata();
-                    return includeSummary
-                      ? { ...meta, summary: computeSummary(meta.fields) }
-                      : meta;
+                    const base = uniqueByDisplayName ? dedupeByDisplayName(meta.fields as SummaryField[]) : (meta.fields as SummaryField[]);
+                    const fields = transformFields(base);
+                    const out = { count: fields.length, fields, source: meta.source };
+                    const needSummary = includeSummary || summaryOnly;
+                    return needSummary ? { ...out, summary: computeSummary(base) } : out;
                   }
 
                   if (effectiveSource === 'combined') {
                     const [xml, meta] = await Promise.all([fetchFromXml(), fetchFromMetadata()]);
                     const merged = dedupeByName(xml.fields, meta.fields);
-                    const out = { count: merged.length, fields: merged, source: 'combined' as const };
-                    return includeSummary ? { ...out, summary: computeSummary(merged) } : out;
+                    const base = uniqueByDisplayName ? dedupeByDisplayName(merged as SummaryField[]) : (merged as SummaryField[]);
+                    const fields = transformFields(base);
+                    const out = { count: fields.length, fields, source: 'combined' as const };
+                    const needSummary = includeSummary || summaryOnly;
+                    return needSummary ? { ...out, summary: computeSummary(base) } : out;
                   }
 
                   // 'auto' mode: try XML first, fall back to metadata
                   try {
                     const xml = await fetchFromXml();
-                    return includeSummary
-                      ? { ...xml, summary: computeSummary(xml.fields) }
-                      : xml;
+                    const base = uniqueByDisplayName ? dedupeByDisplayName(xml.fields as SummaryField[]) : (xml.fields as SummaryField[]);
+                    const fields = transformFields(base);
+                    const out = { count: fields.length, fields, source: xml.source };
+                    const needSummary = includeSummary || summaryOnly;
+                    return needSummary ? { ...out, summary: computeSummary(base) } : out;
                   } catch (error) {
                     console.error('Error parsing workbook XML:', error);
                     const meta = await fetchFromMetadata();
-                    return includeSummary
-                      ? { ...meta, summary: computeSummary(meta.fields) }
-                      : meta;
+                    const base = uniqueByDisplayName ? dedupeByDisplayName(meta.fields as SummaryField[]) : (meta.fields as SummaryField[]);
+                    const fields = transformFields(base);
+                    const out = { count: fields.length, fields, source: meta.source };
+                    const needSummary = includeSummary || summaryOnly;
+                    return needSummary ? { ...out, summary: computeSummary(base) } : out;
                   }
                 } catch (e) {
                   // As a last resort, return an empty set with context
-                  const empty = { count: 0, fields: [] as any[], source: effectiveSource };
-                  return includeSummary ? { ...empty, summary: computeSummary([]) } : empty;
+                  const emptyFields: SummaryField[] = [];
+                  const base = uniqueByDisplayName ? dedupeByDisplayName(emptyFields) : emptyFields;
+                  const empty = { count: 0, fields: transformFields(base), source: effectiveSource };
+                  const needSummary = includeSummary || summaryOnly;
+                  return needSummary ? { ...empty, summary: computeSummary(base) } : empty;
                 }
               },
             }),
