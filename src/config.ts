@@ -30,9 +30,10 @@ export class Config {
   excludeTools: Array<ToolName>;
   maxResultLimit: number | null;
   disableQueryDatasourceFilterValidation: boolean;
+  disableMetadataApiRequests: boolean;
 
   constructor() {
-    const cleansedVars = removeClaudeDesktopExtensionUserConfigTemplates(process.env);
+    const cleansedVars = removeClaudeMcpBundleUserConfigTemplates(process.env);
     const {
       AUTH: auth,
       SERVER: server,
@@ -56,6 +57,7 @@ export class Config {
       EXCLUDE_TOOLS: excludeTools,
       MAX_RESULT_LIMIT: maxResultLimit,
       DISABLE_QUERY_DATASOURCE_FILTER_VALIDATION: disableQueryDatasourceFilterValidation,
+      DISABLE_METADATA_API_REQUESTS: disableMetadataApiRequests,
     } = cleansedVars;
 
     const defaultPort = 3927;
@@ -73,6 +75,7 @@ export class Config {
     this.defaultLogLevel = defaultLogLevel ?? 'debug';
     this.disableLogMasking = disableLogMasking === 'true';
     this.disableQueryDatasourceFilterValidation = disableQueryDatasourceFilterValidation === 'true';
+    this.disableMetadataApiRequests = disableMetadataApiRequests === 'true';
 
     const maxResultLimitNumber = maxResultLimit ? parseInt(maxResultLimit) : NaN;
     this.maxResultLimit =
@@ -168,9 +171,9 @@ function getCorsOriginConfig(corsOriginConfig: string): CorsOptions['origin'] {
   }
 }
 
-// When the user does not provide a site name in the Claude Desktop Extension configuration,
+// When the user does not provide a site name in the Claude MCP Bundle configuration,
 // Claude doesn't replace its value and sets the site name to "${user_config.site_name}".
-function removeClaudeDesktopExtensionUserConfigTemplates(
+function removeClaudeMcpBundleUserConfigTemplates(
   envVars: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
   return Object.entries(envVars).reduce<Record<string, string | undefined>>((acc, [key, value]) => {

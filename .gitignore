@@ -1,5 +1,6 @@
 *.local
 .env
+.env.*
 build/
 node_modules/
 junit/
@@ -9,4 +10,6 @@ env.list
 env.tableau
 manifest.json
 tableau-mcp.dxt
+tableau-mcp.mcpb
 *.pem
+*.tgz
