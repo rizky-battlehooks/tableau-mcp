@@ -256,7 +256,7 @@ export const getListWorkbookCalculatedFieldsTool = (
                     role: field.role || null,
                     type: field.type || null,
                     formula: field.formula,
-                    source: 'workbook-xml' as any,
+                    source: 'workbook' as const,
                   }));
 
                   return { count: items.length, fields: items, source: 'twb-xml' as const };
